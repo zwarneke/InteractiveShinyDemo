@@ -1,2 +1,5 @@
 # Google Sheets Tokens #
 *.rds
+
+# shinyapps.io Publishing Files #
+*.dcf
