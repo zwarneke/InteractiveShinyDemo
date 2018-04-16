@@ -59,7 +59,14 @@ ui <- navbarPage("Interactive Shiny Demo",
            # display decision tree output, with ability to modify parameters
            sidebarLayout(
              sidebarPanel(
-               helpText("Adjust the decision tree parameters.")
+               helpText("Adjust the decision tree parameters. NOTE: Decision tree will not update automatically due to loading time."),
+               sliderInput("MinSplit", h3("Min Split"),
+                           min = 1, max = 75, value = 5),
+               sliderInput("MinBucket", h3("Min Bucket"),
+                           min = 1, max = 75, value = 5),
+               sliderInput("CP", h3("Complexity Parameter"),
+                           min = 0, max = 1, value = 0.01, step = 0.001),
+               actionButton("viewButton", "View Decision Tree", width = "100%")
                ),
              
              mainPanel(plotOutput("decisionTree"))
@@ -76,21 +83,22 @@ server <- function(input, output) {
                input = c(input$CohortYear, input$AverageSalt, input$DataModelsClassRating, input$FavoriteMLMethod, input$FreeTime, input$FavoriteProfessor))
   })
   
+  computeDecisionTree = eventReactive(input$viewButton, {
+    # read data from google sheets
+    googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
+    studentInputData = data.frame(gs_read_csv(googleSheet), stringsAsFactors = TRUE)
+    inputFormula = MakeFormula(studentInputData, "CohortYear")
+    
+    rpart(inputFormula,
+          data = studentInputData,
+          method = "class",
+          parms = list(split = "information"),
+          control = rpart.control(minsplit = input$MinSplit, minbucket = input$MinBucket, cp = input$CP))
+  })
    output$decisionTree <- renderPlot({
-     # read data from google sheets
-     googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
-     studentInputData = data.frame(gs_read_csv(googleSheet), stringsAsFactors = TRUE)
-     inputFormula = MakeFormula(studentInputData, "CohortYear")
-     
-     # compute decision tree model
-     decisionTreeModel = rpart(inputFormula,
-           data = studentInputData,
-           method = "class",
-           parms = list(split = "information"),
-           control = rpart.control(minsplit = 1, minbucket = 1, cp = 0.02))
      
      # plot model
-     rpart.plot(decisionTreeModel, clip.right.labs = FALSE, extra = 2)
+     rpart.plot(computeDecisionTree(), clip.right.labs = FALSE, extra = 2)
      
      print("decision tree ran")
    })
