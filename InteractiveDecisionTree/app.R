@@ -14,8 +14,9 @@ MakeFormula = function(X,dep) {
   return(f)
 }
 
-ui <- navbarPage("Interactive Shiny Demo",
+ui <- navbarPage("Interactive Shiny Demo", id = "MainNavbar",
   tabPanel("Survey",
+           id = "Survey",
            titlePanel("Interactive Shiny Survey"),
            fluidRow(
              column(4,
@@ -56,6 +57,7 @@ ui <- navbarPage("Interactive Shiny Demo",
            )
            ),
   tabPanel("Results",
+           id = "Results",
            # display decision tree output, with ability to modify parameters
            sidebarLayout(
              sidebarPanel(
@@ -74,13 +76,16 @@ ui <- navbarPage("Interactive Shiny Demo",
            )
 )
 
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   observeEvent(input$submitButton, {
     # save data to google sheet
     googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
     gs_add_row(googleSheet,
                input = c(input$CohortYear, input$AverageSalt, input$DataModelsClassRating, input$FavoriteMLMethod, input$FreeTime, input$FavoriteProfessor))
+    
+    # redirect to results page
+    updateNavbarPage(session, "MainNavbar", selected = "Results")
   })
   
   computeDecisionTree = eventReactive(input$viewButton, {
@@ -96,11 +101,8 @@ server <- function(input, output) {
           control = rpart.control(minsplit = input$MinSplit, minbucket = input$MinBucket, cp = input$CP))
   })
    output$decisionTree <- renderPlot({
-     
      # plot model
      rpart.plot(computeDecisionTree(), clip.right.labs = FALSE, extra = 2)
-     
-     print("decision tree ran")
    })
 }
 
