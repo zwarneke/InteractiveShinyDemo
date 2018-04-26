@@ -17,7 +17,7 @@ MakeFormula = function(X,dep) {
 ui <- navbarPage("Interactive Shiny Demo", id = "MainNavbar",
   tabPanel("Survey",
            id = "Survey",
-           titlePanel("Interactive Shiny Survey"),
+           titlePanel("Cohort Survey"),
            fluidRow(
              column(4,
                     selectInput("CohortYear", h3("Cohort"),
@@ -26,18 +26,18 @@ ui <- navbarPage("Interactive Shiny Demo", id = "MainNavbar",
                     ),
              column(4,
                     selectInput("FavoriteMLMethod", h3("Favorite ML Method"),
-                                choices = list("Perceptron", "Neural Network"),
+                                choices = list("Perceptron", "Neural Network", "K-Means Clustering", "K-Nearest Neighbors", "Decision Tree", "Naive Bayes", "Linear Regression", "Logistic Regression"),
                                 selected = "Perceptron")
              ),
              column(4,
-                    selectInput("FavoriteProfessor", h3("Favorite Professor"),
-                                choices = list("Keck", "Bourke", "Valentine", "Vinod", "Cooper"),
+                    selectInput("FavoriteProfessor", h3("Favorite Raikes Professor"),
+                                choices = list("Aldrich", "Barrera", "Bourke", "Cooper", "Cottingham", "Cyphers", "Keck", "Rosenbaum", "Saini", "Suing", "Valentine", "Vinod"),
                                 selected = "Keck")
              )
            ),
            fluidRow(
              column(4,
-                    sliderInput("AverageSalt", h3("Saltiness"),
+                    sliderInput("Stress", h3("Current Stress Level"),
                                 min = 0, max = 10, value = 5)
              ),
              column(4,
@@ -58,14 +58,17 @@ ui <- navbarPage("Interactive Shiny Demo", id = "MainNavbar",
            ),
   tabPanel("Results",
            id = "Results",
+           titlePanel("Cohort Decision Tree"),
            # display decision tree output, with ability to modify parameters
            sidebarLayout(
              sidebarPanel(
                helpText("Adjust the decision tree parameters. NOTE: Decision tree will not update automatically due to loading time."),
                sliderInput("MinSplit", h3("Min Split"),
-                           min = 1, max = 75, value = 5),
+                           min = 1, max = 75, value = 1),
                sliderInput("MinBucket", h3("Min Bucket"),
-                           min = 1, max = 75, value = 5),
+                           min = 1, max = 75, value = 1),
+               sliderInput("MaxDepth", h3("Max Depth"),
+                           min = 1, max = 30, value = 5),
                sliderInput("CP", h3("Complexity Parameter"),
                            min = 0, max = 1, value = 0.01, step = 0.001),
                actionButton("viewButton", "View Decision Tree", width = "100%")
@@ -79,30 +82,36 @@ ui <- navbarPage("Interactive Shiny Demo", id = "MainNavbar",
 server <- function(input, output, session) {
   
   observeEvent(input$submitButton, {
-    # save data to google sheet
-    googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
-    gs_add_row(googleSheet,
-               input = c(input$CohortYear, input$AverageSalt, input$DataModelsClassRating, input$FavoriteMLMethod, input$FreeTime, input$FavoriteProfessor))
-    
-    # redirect to results page
-    updateNavbarPage(session, "MainNavbar", selected = "Results")
+    withProgress(message = 'Saving Response', value = 1, {
+      # save data to google sheet
+      googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
+      gs_add_row(googleSheet,
+                 input = c(input$CohortYear, input$Stress, input$DataModelsClassRating, input$FavoriteMLMethod, input$FreeTime, input$FavoriteProfessor))
+      
+      # redirect to results page
+      updateNavbarPage(session, "MainNavbar", selected = "Results")
+    })
   })
   
   computeDecisionTree = eventReactive(input$viewButton, {
-    # read data from google sheets
-    googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
-    studentInputData = data.frame(gs_read_csv(googleSheet), stringsAsFactors = TRUE)
-    inputFormula = MakeFormula(studentInputData, "CohortYear")
-    
-    rpart(inputFormula,
-          data = studentInputData,
-          method = "class",
-          parms = list(split = "information"),
-          control = rpart.control(minsplit = input$MinSplit, minbucket = input$MinBucket, cp = input$CP))
+      
+      # read data from google sheets
+      googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
+      studentInputData = data.frame(gs_read_csv(googleSheet), stringsAsFactors = TRUE)
+      inputFormula = MakeFormula(studentInputData, "CohortYear")
+      
+      rpart(inputFormula,
+            data = studentInputData,
+            method = "class",
+            parms = list(split = "information"),
+            control = rpart.control(minsplit = input$MinSplit, minbucket = input$MinBucket, maxdepth = input$MaxDepth, cp = input$CP))
   })
-   output$decisionTree <- renderPlot({
-     # plot model
-     rpart.plot(computeDecisionTree(), clip.right.labs = FALSE, extra = 2)
+  
+  output$decisionTree <- renderPlot({
+     withProgress(message = 'Computing Decision Tree', value = 1, {
+       # plot model
+       rpart.plot(computeDecisionTree(), clip.right.labs = FALSE, extra = 2)
+     })
    })
 }
 
