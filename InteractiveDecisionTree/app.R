@@ -4,6 +4,7 @@ library(googlesheets)
 
 gs_auth(token = "google_sheets_app_token.rds")
 RESPONSE_GOOGLE_SHEET_KEY = "1zFS-bjEEAGoShCI-lK8TUnoud65vv-LXmDRCPHHp1Sw"
+googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
 
 MakeFormula = function(X,dep) {
   Xname = names(X)
@@ -84,7 +85,6 @@ server <- function(input, output, session) {
   observeEvent(input$submitButton, {
     withProgress(message = 'Saving Response', value = 1, {
       # save data to google sheet
-      googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
       gs_add_row(googleSheet,
                  input = c(input$CohortYear, input$Stress, input$DataModelsClassRating, input$FavoriteMLMethod, input$FreeTime, input$FavoriteProfessor))
       
@@ -94,9 +94,7 @@ server <- function(input, output, session) {
   })
   
   computeDecisionTree = eventReactive(input$viewButton, {
-      
       # read data from google sheets
-      googleSheet = gs_key(RESPONSE_GOOGLE_SHEET_KEY)
       studentInputData = data.frame(gs_read_csv(googleSheet), stringsAsFactors = TRUE)
       inputFormula = MakeFormula(studentInputData, "CohortYear")
       
